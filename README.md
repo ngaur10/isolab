@@ -1,94 +1,197 @@
-﻿# Lab Platform - Per-User Isolated Cloud Lab System
+**Isolab**
 
-A cloud lab provisioning system that automatically creates fully isolated
-AWS environments for each student on demand - similar to TryHackMe or
-AWS Training, but built from scratch.
+A cloud-based lab provisioning platform that dynamically creates fully isolated AWS environments per user on demand, similar to TryHackMe or AWS Training labs.
 
-## What it does
+Each lab runs in its own VPC, is accessible only via VPN, and is automatically destroyed after a fixed duration to control cost.
 
-When a student requests a lab, the system automatically:
-- Creates a private AWS VPC just for them (isolated network)
-- Launches an EC2 lab VM with SSH access via username + password
-- Sets up VPC peering so the lab connects through OpenVPN server
-- Auto-destroys everything after 60 minutes to control AWS costs
-- Supports up to 254 concurrent labs via a managed CIDR pool
+**What It Does**
 
-## Architecture
+When a user requests a lab:
 
-```
-Student -> OpenVPN -> VPN VPC -> VPC Peering -> Lab VPC -> EC2 VM
-                                      |
-                              FastAPI Orchestrator
-                                      |
-                               Terraform (AWS)
-```
+A dedicated VPC is created with a unique CIDR block
+A lab EC2 instance is provisioned (no public IP)
+VPN-only access is enforced via OpenVPN
+SSH credentials are generated dynamically per session
+VPC peering connects the lab to the VPN network
+The entire environment is automatically destroyed after 60 minutes
 
-| File | Role |
-|---|---|
-| orchestrator/main.py | FastAPI app - API routes, session management |
-| orchestrator/cidr_pool.py | CIDR block manager (254 concurrent labs) |
-| orchestrator/terraform.py | Runs Terraform commands from Python |
-| terraform/main.tf | All AWS resources (VPC, EC2, IAM, peering) |
-| terraform/variable.tf | All Terraform input variables |
-| terraform/output.tf | Terraform outputs (lab VM IP) |
-| terraform/backend.tf | Remote state - S3 + DynamoDB |
-| vpn/setup.sh | OpenVPN server setup script |
+Supports up to 254 concurrent isolated labs using CIDR pool management.
 
-## Security design
+**Architecture Overview**
+**Data Plane**
 
-- No public IPs on lab VMs - only reachable through VPN
-- Scoped IAM roles - S3 read + CloudWatch write only per lab
-- Hard deny statements - labs cannot touch infrastructure
-- Password-per-session - generated fresh, never reused
-- Auto-destroy - labs cannot outlive their 60-minute window
+User → OpenVPN → VPN VPC (10.0.0.0/16)
+                    │
+               VPC Peering
+                    │
+        Lab VPC (10.x.0.0/16)
+                    │
+              EC2 Lab VM
 
-## Tech stack
 
-| Layer | Technology |
-|---|---|
-| API | Python 3.10+, FastAPI, Uvicorn |
-| Infrastructure as Code | Terraform (AWS provider 5.0) |
-| Cloud | AWS VPC, EC2, IAM, S3, DynamoDB |
-| Networking | OpenVPN, VPC Peering, CIDR management |
-| State storage | S3 + DynamoDB remote backend |
+Users connect via VPN and access lab VMs privately
+Lab VMs have no public IPs
+All access is restricted via security groups + VPN routing
 
-## API endpoints
+**Control Plane**
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /start-lab | Provision a new isolated lab |
-| DELETE | /stop-lab/{session_id} | Destroy a lab immediately |
-| GET | /sessions | List all active sessions |
-| GET | /health | Health check + active lab count |
+FastAPI Orchestrator → Terraform CLI → AWS APIs
+                                 │
+                      S3 (state) + DynamoDB (locking)
 
-## Setup
+The orchestrator handles API requests and lifecycle management
+Terraform provisions and destroys AWS infrastructure
+State is stored remotely using S3 with DynamoDB locking
 
-### Prerequisites
-- Python 3.10+, Terraform v1.5+, AWS CLI v2
-- AWS account with VPC, EC2, IAM, S3, DynamoDB permissions
-- OpenVPN server on EC2 (see vpn/setup.sh)
+The FastAPI orchestrator operates in the control plane and is not part of the user traffic path.
 
-### Install
 
-```powershell
+**Components**
+1. FastAPI Orchestrator (orchestrator/)
+
+Core backend service responsible for:
+
+Handling API requests
+Managing lab sessions
+Allocating CIDR blocks
+Generating SSH credentials
+Triggering Terraform
+Scheduling auto-destroy
+
+
+| Method | Endpoint                 | Description          |
+| ------ | ------------------------ | -------------------- |
+| POST   | `/start-lab`             | Provision a new lab  |
+| DELETE | `/stop-lab/{session_id}` | Destroy lab          |
+| GET    | `/sessions`              | List active sessions |
+| GET    | `/health`                | Health check         |
+
+
+
+**2. Terraform (terraform/)**
+
+Infrastructure-as-Code layer that provisions per-lab resources:
+
+VPC (unique CIDR per user)
+Public + private subnets
+Internet Gateway + NAT Gateway
+EC2 lab instance (t3.small)
+Security Groups (VPN-only access)
+IAM role (scoped permissions)
+VPC Peering to VPN VPC
+
+Each lab runs in a separate Terraform workspace.
+
+
+
+**3. CIDR Pool (cidr_pool.py)**
+
+Thread-safe allocator for unique network ranges:
+
+Range: 10.1.0.0/16 → 10.254.0.0/16
+Prevents overlapping VPC CIDRs
+Supports up to 254 concurrent labs
+4. VPN Layer (OpenVPN)
+Deployed manually on EC2 (separate VPC: 10.0.0.0/16)
+Users authenticate via certificates
+Assigns client IPs in 10.8.0.0/16
+Routes traffic to lab VPCs via peering
+
+
+** Lab Lifecycle**
+Start
+User calls /start-lab
+CIDR allocated
+Terraform workspace created
+AWS resources provisioned
+SSH credentials generated
+Lab details returned
+Access
+ssh labuser@<private-ip>
+
+(Only works via VPN)
+
+**Stop**
+Manual: /stop-lab/{session_id}
+Automatic: after 60 minutes
+
+** Security Design**
+
+
+No public IPs on lab VMs
+VPN-only access enforced
+SSH password generated per session (secrets.token_urlsafe)
+IAM roles scoped per lab instance
+Explicit deny policies for destructive actions
+Input validation on all API parameters
+Terraform state encrypted in S3
+
+
+ **Tech Stack**
+
+| Layer              | Technology                    |
+| ------------------ | ----------------------------- |
+| API                | Python, FastAPI, Uvicorn      |
+| Infra Provisioning | Terraform (AWS Provider ~5.0) |
+| Cloud              | AWS EC2, VPC, IAM             |
+| Networking         | OpenVPN, VPC Peering          |
+| State              | S3 + DynamoDB                 |
+| Concurrency        | asyncio                       |
+| Security           | IAM + VPN + SG rules          |
+
+
+
+**Prerequisites**
+
+Before running:
+
+AWS
+AWS account with permissions for:
+EC2, VPC, IAM, S3, DynamoDB
+S3 bucket for Terraform state
+DynamoDB table for state locking
+Local Machine
+Python 3.10+
+Terraform v1.5+
+AWS CLI v2
+VPN
+OpenVPN server running on EC2
+Public IP exported as:
+export VPN_SERVER_IP=<your-ip>
+
+
+**Setup**
+git clone <repo>
+cd lab-platform
+
 python -m venv venv
-venv\Scripts\activate
-pip install -r requirement.txt
-```
+source venv/bin/activate   # Windows: venv\Scripts\activate
 
-### Run
+pip install -r requirements.txt
 
-```powershell
-$env:VPN_SERVER_IP = "your-vpn-server-ip"
-uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000 --reload
-```
+**Run API**
+uvicorn orchestrator.main:app --host 0.0.0.0 --port 8000
 
-API docs: http://localhost:8000/docs
 
-## Cost estimate
 
-| Resource | Cost |
-|---|---|
-| EC2 t3.small lab VM | ~$0.02/hr |
-| VPC, subnets, peering | Free |
-| Auto-destroy after 60 min | Max ~$0.02 per lab |
+**Cost Considerations**
+
+| Resource      | Cost                 |
+| ------------- | -------------------- |
+| EC2 t3.small  | ~$0.02/hr            |
+| NAT Gateway   | ~$0.045/hr (per lab) |
+| VPC / Peering | Free                 |
+
+
+NAT Gateway is the largest cost driver.
+
+**Limitations**
+
+- Max 254 concurrent labs — CIDR pool is bounded by /16 blocks (10.1–10.254)
+- Route table growth — VPC Peering adds one route per lab to the VPN VPC; 
+  hits AWS limits at scale
+- Per-lab NAT Gateway — cost scales linearly (~$0.045/hr each); 
+  a shared egress model would be more efficient at scale
+- Shared Terraform backend — all workspaces share one S3 bucket; 
+  a misconfigured operation could affect multiple environments
+- Manual VPN setup — OpenVPN server must be pre-deployed before the platform runs
