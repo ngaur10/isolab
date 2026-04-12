@@ -91,14 +91,16 @@ Thread-safe allocator for unique network ranges:
 Range: 10.1.0.0/16 → 10.254.0.0/16
 Prevents overlapping VPC CIDRs
 Supports up to 254 concurrent labs
-4. VPN Layer (OpenVPN)
+
+
+**4. VPN Layer (OpenVPN)**
 Deployed manually on EC2 (separate VPC: 10.0.0.0/16)
 Users authenticate via certificates
 Assigns client IPs in 10.8.0.0/16
 Routes traffic to lab VPCs via peering
 
 
-** Lab Lifecycle**
+**Lab Lifecycle**
 Start
 User calls /start-lab
 CIDR allocated
