@@ -117,7 +117,7 @@ ssh labuser@<private-ip>
 Manual: /stop-lab/{session_id}
 Automatic: after 60 minutes
 
-** Security Design**
+**Security Design**
 
 
 No public IPs on lab VMs
