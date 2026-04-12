@@ -1,0 +1,27 @@
+﻿# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.egg-info/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+errored.tfstate
+crash.log
+
+# Sensitive data - NEVER commit these
+orchestrator/sessions.json
+*.pem
+*.key
+*.p12
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
