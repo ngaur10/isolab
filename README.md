@@ -197,3 +197,11 @@ NAT Gateway is the largest cost driver.
 - Shared Terraform backend — all workspaces share one S3 bucket; 
   a misconfigured operation could affect multiple environments
 - Manual VPN setup — OpenVPN server must be pre-deployed before the platform runs
+
+
+
+
+
+![Untitled design (1)](https://github.com/user-attachments/assets/0a5fa7ae-00e1-46c2-a3bd-9d7fa57bba64)
+
+
