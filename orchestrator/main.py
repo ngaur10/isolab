@@ -26,7 +26,7 @@ def load_sessions() -> dict:
         with open(SESSIONS_FILE) as f:
             return json.load(f)
     return {}
-    
+
 
 def save_sessions(sessions: dict):
     with open(SESSIONS_FILE, "w") as f:
