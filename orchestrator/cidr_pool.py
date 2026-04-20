@@ -28,3 +28,4 @@ class CIDRPool:
     def active_count(self) -> int:
         with self.lock:
             return len(self.in_use)
+            
