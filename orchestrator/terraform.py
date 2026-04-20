@@ -50,7 +50,7 @@ def apply(user_id: str, cidr: str, lab_name: str, vpn_ip: str, workspace: str, l
             f"-var=lab_name={lab_name}",
             f"-var=vpn_server_ip={vpn_ip}",
             f"-var=lab_password={lab_password}",   # NEW: password for labuser account
-            f"-var=admin_key_name=terrakey",        # NEW: admin emergency SSH key
+            "-var=admin_key_name=terrakey",        # NEW: admin emergency SSH key
         ],
         workspace,
     )
@@ -76,7 +76,7 @@ def destroy(workspace: str, user_id: str, cidr: str, lab_name: str, vpn_ip: str,
             f"-var=lab_name={lab_name}",
             f"-var=vpn_server_ip={vpn_ip}",
             f"-var=lab_password={lab_password}",   # required — variable has no default
-            f"-var=admin_key_name=terrakey",
+            "-var=admin_key_name=terrakey",
         ],
         workspace,
     )
