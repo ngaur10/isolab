@@ -87,4 +87,3 @@ def destroy(workspace: str, user_id: str, cidr: str, lab_name: str, vpn_ip: str,
         run_terraform(["terraform", "workspace", "delete", workspace], "default")
     except Exception as e:
         print(f"[WARN] Could not delete workspace '{workspace}' after destroy: {e}")
-        
