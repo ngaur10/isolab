@@ -32,6 +32,7 @@ def save_sessions(sessions: dict):
     with open(SESSIONS_FILE, "w") as f:
         json.dump(sessions, f, indent=2)
 
+
 sessions = load_sessions()
 
 # Restore CIDR pool state from persisted sessions
