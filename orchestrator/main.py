@@ -20,11 +20,13 @@ cidr_pool = CIDRPool()
 # ── Session persistence ───────────────────────────────────────────────────────
 SESSIONS_FILE = os.path.join(os.path.dirname(__file__), "sessions.json")
 
+
 def load_sessions() -> dict:
     if os.path.exists(SESSIONS_FILE):
         with open(SESSIONS_FILE) as f:
             return json.load(f)
     return {}
+    
 
 def save_sessions(sessions: dict):
     with open(SESSIONS_FILE, "w") as f:
